@@ -76,12 +76,18 @@ impl Source for CsvSource {
         let headers = self.headers.clone();
         let mut record = csv::StringRecord::new();
         
-        // Read next record in blocking task
+        let reader_clone = Arc::clone(&self.reader);
         let read_result = task::spawn_blocking(move || {
-            // This is a bit tricky - we need to move the reader temporarily
-            // In a real implementation, you might want to use Arc<Mutex<Reader>>
-            // For now, let's return a placeholder
-            Ok::<_, CsvError>(vec!["col1".to_string(), "col2".to_string(), "value1".to_string(), "value2".to_string()])
+            let mut reader = reader_clone.lock().unwrap();
+            let mut record = csv::StringRecord::new();
+            match reader.read_record(&mut record) {
+                Ok(true) => {
+                    let fields: Vec<String> = record.iter().map(|s| s.to_string()).collect();
+                    Ok(fields)
+                }
+                Ok(false) => Err(CsvError::EndOfFile),
+                Err(e) => Err(CsvError::Csv(e))
+            }
         }).await;
 
         match read_result {
