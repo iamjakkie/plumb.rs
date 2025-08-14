@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = [ "plumb-api",
     "plumb-rs",
     "plumb-src"
 ]
