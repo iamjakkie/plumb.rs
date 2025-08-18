@@ -1,4 +1,6 @@
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct Pipeline {
     id: i32,
     name: String,
@@ -6,6 +8,7 @@ pub struct Pipeline {
     edges: Vec<Edge>
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum NodeType {
     Connector {
         max_outputs: Option<usize>
@@ -19,7 +22,7 @@ pub enum NodeType {
     Destination
 }
 
-
+#[derive(Serialize, Deserialize)]
 pub struct Node {
     id: i32,
     node_type: NodeType,
@@ -27,11 +30,13 @@ pub struct Node {
     config: serde_json::Value
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct Edge {
     from: i32,
     to: i32,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct NodeState {
     id: i32,
     status: String,
