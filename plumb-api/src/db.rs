@@ -29,6 +29,8 @@ impl Database {
     }
 
     fn init_tables(&self) -> Result<()> {
-        
+        let schema = include_str!("schema.sql");
+        self.conn.execute_batch(schema)?;
+        Ok(())
     }
 }
