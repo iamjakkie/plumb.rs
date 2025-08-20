@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{routing::get, Json, Router};
 use dotenv::dotenv;
 use std::env;
 use anyhow::Result;
@@ -35,14 +35,14 @@ DELETE /api/pipelines/{id}         # Delete pipeline
 */
 
 async fn list_pipelines() -> Json<Vec<Pipeline>> {
-
+    
 }
 
 async fn create_pipeline(pipeline: Pipeline) -> Result<()> {
 
 }
 
-async fn get_pipeline(id: i32) -> Json<Pipeline> {
+async fn get_pipeline(id: i32) -> Result<Pipeline> {
 
 }
 
@@ -86,12 +86,23 @@ PUT    /api/pipelines/{id}/destinations/{did} # Edit destination
 DELETE /api/pipelines/{id}/destinations/{did} # Remove destination
 */
 
+async fn add_node(connector: Node) -> Result<()> {
 
+}
+
+async fn edit_node(id: i32, connector: Node) -> Result<()> {
+
+}
+
+async fn delete_node(id: i32) -> Result<()> {
+
+}
 
 /*
 GET    /api/pipelines/{id}/dag     # Get pipeline DAG
 PUT    /api/pipelines/{id}/dag     # Update connections/links
 */
+
 
 /*
 GET    /api/pipelines/{id}/state   # Get pipeline state
