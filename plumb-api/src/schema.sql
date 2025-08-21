@@ -1,10 +1,10 @@
-CREATE TABLE pipelines (
+CREATE TABLE IF NOT EXISTS pipelines (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE nodes (
+CREATE TABLE IF NOT EXISTS nodes (
     id INTEGER PRIMARY KEY,
     pipeline_id INTEGER REFERENCES pipelines(id),
     node_type TEXT NOT NULL,  -- 'connector', 'transformation', 'destination'
@@ -13,14 +13,14 @@ CREATE TABLE nodes (
     constraints JSON  -- Store NodeType constraints as JSON
 );
 
-CREATE TABLE edges (
+CREATE TABLE IF NOT EXISTS edges (
     id INTEGER PRIMARY KEY,
     pipeline_id INTEGER REFERENCES pipelines(id),
     from_node INTEGER REFERENCES nodes(id),
     to_node INTEGER REFERENCES nodes(id)
 );
 
-CREATE TABLE node_states (
+CREATE TABLE IF NOT EXISTS node_states (
     node_id INTEGER REFERENCES nodes(id),
     status TEXT NOT NULL,
     description TEXT,

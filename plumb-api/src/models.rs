@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct Pipeline {
-    id: i32,
-    name: String,
-    nodes: Vec<Node>,
-    edges: Vec<Edge>
+    pub id: i32,
+    pub name: String,
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>
 }
 
 #[derive(Serialize, Deserialize)]
