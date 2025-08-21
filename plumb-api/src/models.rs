@@ -8,6 +8,17 @@ pub struct Pipeline {
     pub edges: Vec<Edge>
 }
 
+impl Pipeline {
+    pub fn new(name: String) -> Self {
+        Self {
+            id: 0,
+            name,
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum NodeType {
     Connector {

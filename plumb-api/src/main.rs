@@ -1,13 +1,13 @@
-use axum::{extract::State, routing::get, Json, Router};
+use anyhow::Result;
+use axum::{Json, Router, extract::State, routing::get};
 use dotenv::dotenv;
 use std::{env, sync::Arc};
-use anyhow::Result;
 
-mod models;
 mod db;
+mod models;
 
-use models::*;
 use db::Database;
+use models::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -45,15 +45,21 @@ DELETE /api/pipelines/{id}         # Delete pipeline
 */
 
 async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipeline>>, String> {
-    let pipelines = db.get_all_pipelines()
+    let pipelines = db
+        .get_all_pipelines()
         .map_err(|e| format!("Database error: {}", e))?;
 
     Ok(Json(pipelines))
 }
 
-// async fn create_pipeline(pipeline: Pipeline) -> Result<()> {
+async fn create_pipeline(State(db): State<Arc<Database>>, Json(request): Json<) -> Result<i32> {
+    let pipeline = Pipeline::new(request.name);
+    let created_pipeline = db
+        .add_pipeline(&pipeline)
+        .map_err(|e| format!("Database error: {}", e))?;
 
-// }
+    Ok(created_pipeline)
+}
 
 // async fn get_pipeline(id: i32) -> Result<Pipeline> {
 
@@ -69,10 +75,9 @@ async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipe
 
 // /*
 // GET    /api/connectors             # List available connector types
-// GET    /api/transformations        # List available transformation types  
+// GET    /api/transformations        # List available transformation types
 // GET    /api/destinations           # List available destination types
 // */
-
 // async fn get_connectors() -> Vec<String> {
 
 // }
@@ -95,10 +100,9 @@ async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipe
 // DELETE /api/pipelines/{id}/transformations/{tid} # Remove transformation
 
 // POST   /api/pipelines/{id}/destinations     # Add destination
-// PUT    /api/pipelines/{id}/destinations/{did} # Edit destination  
+// PUT    /api/pipelines/{id}/destinations/{did} # Edit destination
 // DELETE /api/pipelines/{id}/destinations/{did} # Remove destination
 // */
-
 // async fn add_node(connector: Node) -> Result<()> {
 
 // }
@@ -115,7 +119,6 @@ async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipe
 // GET    /api/pipelines/{id}/dag     # Get pipeline DAG
 // PUT    /api/pipelines/{id}/dag     # Update connections/links
 // */
-
 
 // /*
 // GET    /api/pipelines/{id}/state   # Get pipeline state

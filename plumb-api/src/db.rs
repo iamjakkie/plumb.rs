@@ -48,4 +48,17 @@ impl Database {
 
         rows.collect::<Result<Vec<Pipeline>, _>>().map_err(|e| anyhow::Error::from(e))
     }
+
+    pub fn add_pipeline(&self, pipeline: &Pipeline) -> Result<i32> {
+        let conn = Connection::open(&self.db_path)?;
+
+        let mut query = conn.prepare(
+            "INSERT INTO pipelines (name) VALUES (?1) RETURNING id",
+        )?;
+
+        let id: i32 = query.query_row([&pipeline.name], |row| {
+            row.get(0)
+        })?;
+        Ok(id)
+    }
 }
