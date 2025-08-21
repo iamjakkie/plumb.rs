@@ -4,8 +4,10 @@ use std::env;
 use anyhow::Result;
 
 mod models;
+mod db;
 
 use models::*;
+use db::Database;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -15,6 +17,8 @@ async fn main() -> Result<()> {
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
 
     println!("Starting Plumb API server on {}:{}", host, port);
+
+    let db = Database::new()?;
 
     let app = Router::new()
         .route("/he")
@@ -35,7 +39,7 @@ DELETE /api/pipelines/{id}         # Delete pipeline
 */
 
 async fn list_pipelines() -> Json<Vec<Pipeline>> {
-    
+
 }
 
 async fn create_pipeline(pipeline: Pipeline) -> Result<()> {

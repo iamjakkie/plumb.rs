@@ -11,13 +11,15 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn new(path_str: &str) -> Result<Self> {
-        let path = Path::new(path_str);
+    pub fn new() -> Result<Self> {
+        let path = Path::new("./data");
         if !path.exists() {
             fs::create_dir(path)?;
         }
 
-        let connection = Connection::open(path)?;
+        let db_path = path.join("/plumb.db");
+
+        let connection = Connection::open(db_path)?;
 
         let db = Self {
             conn: connection
