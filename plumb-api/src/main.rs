@@ -52,13 +52,23 @@ async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipe
     Ok(Json(pipelines))
 }
 
-async fn create_pipeline(State(db): State<Arc<Database>>, Json(request): Json<) -> Result<i32> {
-    let pipeline = Pipeline::new(request.name);
-    let created_pipeline = db
-        .add_pipeline(&pipeline)
-        .map_err(|e| format!("Database error: {}", e))?;
+async fn create_pipeline(
+    State(db): State<Arc<Database>>,
+    Json(pipeline): Json<Pipeline>,
+) -> Result<i32> {
+    let created_pipeline = if pipeline.nodes.is_empty() && pipeline.edges.is_empty() {
+        let id = db.add_pipeline(&pipeline)?;
+        Pipeline {
+            id,
+            name: pipeline.name,
+            nodes: vec![],
+            edges: vec![]
+        }
+    } else {
+        db.clone_pipeline(&pipeline)?
+    }
 
-    Ok(created_pipeline)
+    Ok(Json(created_pipeline))
 }
 
 // async fn get_pipeline(id: i32) -> Result<Pipeline> {
@@ -119,7 +129,6 @@ async fn create_pipeline(State(db): State<Arc<Database>>, Json(request): Json<) 
 // GET    /api/pipelines/{id}/dag     # Get pipeline DAG
 // PUT    /api/pipelines/{id}/dag     # Update connections/links
 // */
-
 // /*
 // GET    /api/pipelines/{id}/state   # Get pipeline state
 // GET    /api/connectors/{id}/state  # Get connector state

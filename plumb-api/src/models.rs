@@ -19,6 +19,7 @@ impl Pipeline {
     }
 }
 
+
 #[derive(Serialize, Deserialize)]
 pub enum NodeType {
     Connector {
