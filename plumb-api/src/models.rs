@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Pipeline {
     pub id: i32,
     pub name: String,
@@ -20,7 +20,7 @@ impl Pipeline {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub enum NodeType {
     Connector {
         max_outputs: Option<usize>
@@ -34,7 +34,7 @@ pub enum NodeType {
     Destination
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Node {
     id: i32,
     node_type: NodeType,
@@ -42,7 +42,7 @@ pub struct Node {
     config: serde_json::Value
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Edge {
     from: i32,
     to: i32,

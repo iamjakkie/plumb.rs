@@ -63,8 +63,14 @@ impl Database {
     }
 
     pub fn clone_pipeline(&self, pipeline: &Pipeline) -> Result<Pipeline> {
-        let name = pipeline.name + "_copy";
-        let new_pipeline = Pipeline::new(name);
-        
+        let name = pipeline.name.clone() + "_copy";
+        let new_pipeline = Pipeline::new(name.clone());
+        let id = self.add_pipeline(&new_pipeline)?;
+        Ok(Pipeline {
+            id,
+            name: name,
+            nodes: pipeline.nodes.clone(),
+            edges: pipeline.edges.clone()
+        })
     }
 }
