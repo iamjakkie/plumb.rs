@@ -36,10 +36,10 @@ pub enum NodeType {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Node {
-    id: i32,
-    node_type: NodeType,
-    name: String,
-    config: serde_json::Value
+    pub id: i32,
+    pub node_type: NodeType,
+    pub name: String,
+    pub config: serde_json::Value
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
