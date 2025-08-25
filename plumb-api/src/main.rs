@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/pipelines", get(list_pipelines))
+        .route("/api/pipelines", get(list_pipelines).post(create_pipeline))
         .with_state(db);
 
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await?;
@@ -55,9 +55,11 @@ async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipe
 async fn create_pipeline(
     State(db): State<Arc<Database>>,
     Json(pipeline): Json<Pipeline>,
-) -> Result<i32> {
+) -> Result<Json<Pipeline>, String> {
     let created_pipeline = if pipeline.nodes.is_empty() && pipeline.edges.is_empty() {
-        let id = db.add_pipeline(&pipeline)?;
+        let id = db.add_pipeline(&pipeline).map_err(
+            |e| format!("Database error: {}", e)
+        )?;
         Pipeline {
             id,
             name: pipeline.name,
@@ -65,8 +67,8 @@ async fn create_pipeline(
             edges: vec![]
         }
     } else {
-        db.clone_pipeline(&pipeline)?
-    }
+        db.clone_pipeline(&pipeline).map_err(|e| format!("Could not clone pipeline: {}", e))?
+    };
 
     Ok(Json(created_pipeline))
 }

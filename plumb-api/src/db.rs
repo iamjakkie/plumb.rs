@@ -88,7 +88,7 @@ impl Database {
         let node_type = match node.node_type {
             NodeType::Connector { .. } => "connector",
             NodeType::Transformation { .. } => "transformation",
-            NodeType::Destination => "desination",
+            NodeType::Destination => "destination",
         };
 
         let config_json = serde_json::to_string(&node.config)?;
