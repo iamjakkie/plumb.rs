@@ -27,27 +27,39 @@
         <main class="main">
             <!-- Sidebar -->
             <aside class="sidebar">
+                <!-- Status Summary at top -->
                 <div class="sidebar-section">
-                    <h3>Pipelines</h3>
-                    <div id="pipeline-list" class="pipeline-list">
-                        <!-- Pipeline items will be loaded here -->
-                    </div>
-                </div>
-                
-                <div class="sidebar-section">
-                    <h3>Status</h3>
                     <div class="status-summary">
                         <div class="status-item">
-                            <span class="status-dot status-running"></span>
+                            <div class="status-dot status-running"></div>
                             <span id="running-count">0</span> Running
                         </div>
                         <div class="status-item">
-                            <span class="status-dot status-idle"></span>
+                            <div class="status-dot status-idle"></div>
                             <span id="idle-count">0</span> Idle
                         </div>
                         <div class="status-item">
-                            <span class="status-dot status-error"></span>
+                            <div class="status-dot status-error"></div>
                             <span id="error-count">0</span> Error
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="sidebar-section">
+                    <div class="search-container">
+                        <input type="text" id="pipeline-search" placeholder="Search pipelines..." class="search-input">
+                        <div class="search-icon">🔍</div>
+                    </div>
+                </div>
+
+                <!-- Pipeline List -->
+                <div class="sidebar-section">
+                    <h3>Pipelines</h3>
+                    <div class="pipeline-list" id="pipeline-list">
+                        <div class="empty-list">
+                            <p>No pipelines found</p>
+                            <button class="btn btn-primary" onclick="openCreateModal()">Create First Pipeline</button>
                         </div>
                     </div>
                 </div>

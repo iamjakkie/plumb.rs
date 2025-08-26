@@ -1,8 +1,9 @@
 // API Configuration - using relative URLs since served from same server
 const API_BASE = '/api';
 
-// Application State
+// Global state
 let pipelines = [];
+let filteredPipelines = [];
 let selectedPipeline = null;
 let currentZoom = 1;
 
@@ -18,7 +19,8 @@ const elements = {
     pipelineNameInput: document.getElementById('pipeline-name'),
     runningCount: document.getElementById('running-count'),
     idleCount: document.getElementById('idle-count'),
-    errorCount: document.getElementById('error-count')
+    errorCount: document.getElementById('error-count'),
+    searchInput: document.getElementById('pipeline-search')
 };
 
 // API Functions
@@ -78,53 +80,58 @@ async function fetchPipeline(id) {
 
 // UI Functions
 function renderPipelineList() {
-    console.log('Rendering pipeline list, count:', pipelines.length);
-    elements.pipelineList.innerHTML = '';
-    
-    if (pipelines.length === 0) {
-        elements.pipelineList.innerHTML = `
+    const pipelineList = document.getElementById('pipeline-list');
+    if (!pipelineList) return;
+
+    if (filteredPipelines.length === 0) {
+        const isSearching = elements.searchInput && elements.searchInput.value.trim() !== '';
+        
+        pipelineList.innerHTML = `
             <div class="empty-list">
-                <p>No pipelines yet</p>
-                <button class="btn btn-primary" onclick="openCreateModal()">
-                    Create First Pipeline
-                </button>
+                <p>${isSearching ? 'No pipelines match your search' : 'No pipelines found'}</p>
+                ${!isSearching ? '<button class="btn btn-primary" onclick="openCreateModal()">Create First Pipeline</button>' : ''}
             </div>
         `;
         return;
     }
-    
-    pipelines.forEach(pipeline => {
-        const item = document.createElement('div');
-        item.className = `pipeline-item ${selectedPipeline?.id === pipeline.id ? 'active' : ''}`;
-        item.onclick = () => selectPipeline(pipeline);
-        
-        const status = pipeline.status || 'idle';
+
+    pipelineList.innerHTML = filteredPipelines.map(pipeline => {
+        const status = getRandomStatus(); // TODO: Use real status from API
         const nodeCount = pipeline.nodes ? pipeline.nodes.length : 0;
         
-        item.innerHTML = `
-            <div class="pipeline-name">${pipeline.name}</div>
-            <div class="pipeline-meta">
-                <span class="status-dot status-${status}"></span>
-                <span>${nodeCount} nodes</span>
+        return `
+            <div class="pipeline-item ${selectedPipeline && selectedPipeline.id === pipeline.id ? 'active' : ''}" 
+                 onclick="selectPipeline(${pipeline.id})">
+                <div class="pipeline-name" title="${pipeline.name}">${pipeline.name}</div>
+                <div class="pipeline-meta">
+                    <div class="pipeline-status ${status}"></div>
+                    <span>${nodeCount}</span>
+                </div>
             </div>
         `;
-        
-        elements.pipelineList.appendChild(item);
-    });
-    
-    updateStatusCounts();
+    }).join('');
 }
 
-function updateStatusCounts() {
-    const counts = pipelines.reduce((acc, pipeline) => {
-        const status = pipeline.status || 'idle';
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-    }, {});
+function updateStatusSummary() {
+    const runningCount = document.getElementById('running-count');
+    const idleCount = document.getElementById('idle-count');
+    const errorCount = document.getElementById('error-count');
+
+    // Count statuses from filtered pipelines (for search results)
+    let running = 0, idle = 0, error = 0;
     
-    elements.runningCount.textContent = counts.running || 0;
-    elements.idleCount.textContent = counts.idle || 0;
-    elements.errorCount.textContent = counts.error || 0;
+    filteredPipelines.forEach(() => {
+        const status = getRandomStatus(); // TODO: Use real status
+        switch (status) {
+            case 'running': running++; break;
+            case 'idle': idle++; break;
+            case 'error': error++; break;
+        }
+    });
+
+    if (runningCount) runningCount.textContent = running;
+    if (idleCount) idleCount.textContent = idle;
+    if (errorCount) errorCount.textContent = error;
 }
 
 function selectPipeline(pipeline) {
@@ -264,14 +271,58 @@ async function handleCreatePipeline(event) {
 
 async function loadPipelines() {
     console.log('Loading pipelines...');
-    pipelines = await fetchPipelines();
-    renderPipelineList();
-    
-    if (pipelines.length === 0) {
-        elements.emptyState.style.display = 'block';
-        elements.canvasTitle.textContent = 'Pipeline Overview';
-        elements.canvasSubtitle.textContent = 'Select a pipeline to view details';
+    try {
+        console.log('Fetching pipelines from:', `${API_BASE}/pipelines`);
+        const response = await fetch(`${API_BASE}/pipelines`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        pipelines = await response.json();
+        filteredPipelines = [...pipelines];
+        console.log('Fetched pipelines:', pipelines);
+        
+        renderPipelineList();
+        updateStatusSummary();
+        
+        // Select first pipeline if none selected
+        if (pipelines.length > 0 && !selectedPipeline) {
+            selectPipeline(pipelines[0].id);
+        }
+        
+    } catch (error) {
+        console.error('Error loading pipelines:', error);
+        showNotification('Failed to load pipelines', 'error');
+        
+        // Show empty state
+        const pipelineList = document.getElementById('pipeline-list');
+        if (pipelineList) {
+            pipelineList.innerHTML = `
+                <div class="empty-list">
+                    <p>Failed to load pipelines</p>
+                    <button class="btn btn-secondary" onclick="loadPipelines()">Retry</button>
+                </div>
+            `;
+        }
     }
+}
+
+function handleSearch(event) {
+    const query = event.target.value.toLowerCase().trim();
+    console.log('Searching for:', query);
+    
+    if (query === '') {
+        filteredPipelines = [...pipelines];
+    } else {
+        filteredPipelines = pipelines.filter(pipeline => 
+            pipeline.name.toLowerCase().includes(query) ||
+            (pipeline.description && pipeline.description.toLowerCase().includes(query))
+        );
+    }
+    
+    renderPipelineList();
+    updateStatusSummary();
 }
 
 function showNotification(message, type = 'info') {
@@ -301,8 +352,17 @@ function showNotification(message, type = 'info') {
 }
 
 // Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+function initializeApp() {
     console.log('DOM loaded, initializing app...');
+    
+    // Set up search functionality
+    const searchInput = document.getElementById('pipeline-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', handleSearch);
+        console.log('Search functionality initialized');
+    }
     
     // Load initial data
     loadPipelines();
@@ -359,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.pipelineCanvas.style.transform = 'scale(1)';
         };
     }
-});
+}
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -380,3 +440,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 console.log('App.js loaded successfully');
+
+function getRandomStatus() {
+    const statuses = ['running', 'idle', 'error'];
+    return statuses[Math.floor(Math.random() * statuses.length)];
+}
