@@ -105,8 +105,10 @@ async fn get_pipeline(
 async fn delete_pipeline(
     State(db): State<Arc<Database>>,
     Path(id): Path<i32>,
-) -> Result<()> {
-    
+) -> Result<String, String> {
+    db.remove_pipeline(id)
+        .map_err(|e| format!("Database error: {}", e))?;
+    Ok("Pipeline deleted successfully".to_string())
 }
 
 // /*
@@ -139,9 +141,9 @@ async fn delete_pipeline(
 // PUT    /api/pipelines/{id}/destinations/{did} # Edit destination
 // DELETE /api/pipelines/{id}/destinations/{did} # Remove destination
 // */
-// async fn add_node(connector: Node) -> Result<()> {
+async fn add_node(connector: Node) -> Result<()> {
 
-// }
+}
 
 // async fn edit_node(id: i32, connector: Node) -> Result<()> {
 
