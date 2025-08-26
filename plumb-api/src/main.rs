@@ -1,5 +1,5 @@
 use anyhow::Result;
-use axum::{Json, Router, extract::State, routing::get};
+use axum::{extract::{Path, State}, routing::get, Json, Router};
 use dotenv::dotenv;
 use std::{env, sync::Arc};
 
@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/pipelines", get(list_pipelines).post(create_pipeline))
+        .route("/api/pipelines/{id}", get(get_pipeline))
         .with_state(db);
 
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await?;
@@ -57,25 +58,32 @@ async fn create_pipeline(
     Json(pipeline): Json<Pipeline>,
 ) -> Result<Json<Pipeline>, String> {
     let created_pipeline = if pipeline.nodes.is_empty() && pipeline.edges.is_empty() {
-        let id = db.add_pipeline(&pipeline).map_err(
-            |e| format!("Database error: {}", e)
-        )?;
+        let id = db
+            .add_pipeline(&pipeline)
+            .map_err(|e| format!("Database error: {}", e))?;
         Pipeline {
             id,
             name: pipeline.name,
             nodes: vec![],
-            edges: vec![]
+            edges: vec![],
         }
     } else {
-        db.clone_pipeline(&pipeline).map_err(|e| format!("Could not clone pipeline: {}", e))?
+        db.clone_pipeline(&pipeline)
+            .map_err(|e| format!("Could not clone pipeline: {}", e))?
     };
 
     Ok(Json(created_pipeline))
 }
 
-// async fn get_pipeline(id: i32) -> Result<Pipeline> {
+async fn get_pipeline(
+    State(db): State<Arc<Database>>,
+    Path(id): Path<i32>,
+) -> Result<Json<Pipeline>, String> {
+    let pipeline = db.get_pipeline(id)
+        .map_err(|e| format!("Database error: {}", e))?;
 
-// }
+    Ok(Json(pipeline))
+}
 
 // async fn update_pipeline(pipeline: Pipeline) -> Result<()> {
 

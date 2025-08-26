@@ -1,6 +1,6 @@
 use std::{any::Any, collections::HashMap, fs, path::Path};
 
-use duckdb::{params, Connection};
+use rusqlite::{params, Connection};
 
 use anyhow::Result;
 
@@ -46,7 +46,7 @@ impl Database {
             .map_err(|e| anyhow::Error::from(e))
     }
 
-    fn get_pipeline(&self, pipeline_id: i32) -> Result<Pipeline> {
+    pub fn get_pipeline(&self, pipeline_id: i32) -> Result<Pipeline> {
         let conn = Connection::open(&self.db_path)?;
 
         let mut query = conn.prepare("SELECT * FROM pipelines WHERE id = ?1")?;
