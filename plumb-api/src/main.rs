@@ -102,13 +102,12 @@ async fn get_pipeline(
     Ok(Json(pipeline))
 }
 
-// async fn update_pipeline(pipeline: Pipeline) -> Result<()> {
-
-// }
-
-// async fn delete_pipeline(id: i32) -> Result<()> {
-
-// }
+async fn delete_pipeline(
+    State(db): State<Arc<Database>>,
+    Path(id): Path<i32>,
+) -> Result<()> {
+    
+}
 
 // /*
 // GET    /api/connectors             # List available connector types

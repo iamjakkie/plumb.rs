@@ -72,6 +72,37 @@ impl Database {
         Ok(id)
     }
 
+    pub fn remove_pipeline(&self, pipeline_id: i32) -> Result<()> {
+        let conn = Connection::open(&self.db_path)?;
+
+        let mut query = conn.prepare(
+            "DELETE FROM pipelines WHERE id = ?1"
+        )?;
+
+        let res = query.query_row([&pipeline_id], |row| {
+            row.get(0);
+        })
+    }
+
+    pub fn add_node(&self, pipeline_id: i32, node: &Node) -> Result<i32> {
+        let conn = Connection::open(&self.db_path)?;
+
+        if self.get_pipeline(pipeline_id).is_err() {
+            return Err(anyhow::anyhow!(
+                "Can't dd node to pipeline that does not exist"
+            ));
+        }
+
+        let mut query = conn.prepare {
+            "INSERT INTO nodes (pipeline_id, node_type, name, config, constraints) VALUES (?1, ?2, ?3, ?4, ?5)"
+        }?;
+
+        let config_json = node.config_json()?;
+        
+
+        
+    }
+
     fn add_node_to_pipeline(&self, pipeline_id: i32, node: &Node) -> Result<i32> {
         let conn = Connection::open(&self.db_path)?;
 
