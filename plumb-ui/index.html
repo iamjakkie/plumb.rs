@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plumb.rs - Pipeline Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">🔧 Plumb.rs</h1>
+                <div class="header-actions">
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        <span class="icon">🔄</span> Refresh
+                    </button>
+                    <button id="new-pipeline-btn" class="btn btn-primary">
+                        <span class="icon">➕</span> New Pipeline
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Pipelines</h3>
+                    <div id="pipeline-list" class="pipeline-list">
+                        <!-- Pipeline items will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h3>Status</h3>
+                    <div class="status-summary">
+                        <div class="status-item">
+                            <span class="status-dot status-running"></span>
+                            <span id="running-count">0</span> Running
+                        </div>
+                        <div class="status-item">
+                            <span class="status-dot status-idle"></span>
+                            <span id="idle-count">0</span> Idle
+                        </div>
+                        <div class="status-item">
+                            <span class="status-dot status-error"></span>
+                            <span id="error-count">0</span> Error
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Canvas Area -->
+            <section class="canvas-container">
+                <div class="canvas-header">
+                    <div class="canvas-title">
+                        <h2 id="canvas-title">Pipeline Overview</h2>
+                        <span id="canvas-subtitle" class="subtitle">Select a pipeline to view details</span>
+                    </div>
+                    <div class="canvas-controls">
+                        <button id="zoom-out" class="btn btn-icon">🔍-</button>
+                        <button id="zoom-in" class="btn btn-icon">🔍+</button>
+                        <button id="fit-view" class="btn btn-icon">📐</button>
+                    </div>
+                </div>
+                
+                <div class="canvas-wrapper">
+                    <svg id="pipeline-canvas" class="pipeline-canvas">
+                        <!-- Pipeline visualization will be rendered here -->
+                    </svg>
+                    
+                    <!-- Empty state -->
+                    <div id="empty-state" class="empty-state">
+                        <div class="empty-icon">📊</div>
+                        <h3>No Pipeline Selected</h3>
+                        <p>Select a pipeline from the sidebar or create a new one to get started.</p>
+                        <button id="create-first-pipeline" class="btn btn-primary">
+                            Create Your First Pipeline
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for creating new pipeline -->
+    <div id="new-pipeline-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Pipeline</h3>
+                <button id="close-modal" class="btn btn-icon">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="new-pipeline-form">
+                    <div class="form-group">
+                        <label for="pipeline-name">Pipeline Name</label>
+                        <input type="text" id="pipeline-name" name="name" placeholder="Enter pipeline name..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="pipeline-description">Description (Optional)</label>
+                        <textarea id="pipeline-description" name="description" placeholder="Describe what this pipeline does..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-create" class="btn btn-secondary">Cancel</button>
+                <button id="create-pipeline" class="btn btn-primary">Create Pipeline</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
