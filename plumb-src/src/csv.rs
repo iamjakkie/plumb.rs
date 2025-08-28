@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use tokio::task;
 
-use crate::source::Source;
+use crate::connector::{Connector, ConnectorMeta};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CsvConfig {
@@ -36,7 +36,7 @@ pub struct CsvSource {
 }
 
 #[async_trait]
-impl Source for CsvSource {
+impl Connector for CsvSource {
     type Config = CsvConfig;
     type Item = Vec<u8>;
     type Error = CsvError;
@@ -123,5 +123,35 @@ impl Source for CsvSource {
     async fn close(&mut self) -> Result<(), Self::Error> {
         // CSV reader doesn't need explicit closing
         Ok(())
+    }
+}
+
+impl ConnectorMeta for CsvSource {
+    fn connector_type() -> &'static str {
+        "csv"
+    }
+    
+    fn config_schema() -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {"type": "string", "description": "Path to CSV file"},
+                "has_headers": {"type": "boolean", "default": true, "description": "Whether the CSV file has headers"},
+                "delimiter": {"type": "string", "default": ",", "maxLength": 1, "description": "Field delimiter character"}
+            },
+            "required": ["file_path"]
+        })
+    }
+    
+    fn is_available() -> bool {
+        true
+    }
+    
+    fn display_name() -> &'static str {
+        "CSV File"
+    }
+    
+    fn description() -> &'static str {
+        "Read data from CSV files with configurable delimiters and header options"
     }
 }

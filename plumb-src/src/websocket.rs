@@ -4,8 +4,9 @@ use thiserror::Error;
 use tokio_tungstenite::{connect_async, tungstenite::Message, WebSocketStream, MaybeTlsStream};
 use tokio::net::TcpStream;
 use futures_util::{SinkExt, StreamExt};
+use serde_json::json;
 
-use crate::source::Source;
+use crate::connector::{Connector, ConnectorMeta};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebSocketConfig {
@@ -30,7 +31,7 @@ pub struct WebSocketSource {
 }
 
 #[async_trait]
-impl Source for WebSocketSource {
+impl Connector for WebSocketSource {
     type Config = WebSocketConfig;
     type Item = Vec<u8>;
     type Error = WebSocketError;
@@ -65,5 +66,44 @@ impl Source for WebSocketSource {
     async fn close(&mut self) -> Result<(), Self::Error> {
         self.ws_stream.send(Message::Close(None)).await?;
         Ok(())
+    }
+}
+
+impl ConnectorMeta for WebSocketSource {
+    fn connector_type() -> &'static str {
+        "websocket"
+    }
+    
+    fn config_schema() -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "WebSocket URL to connect to"},
+                "subscription_message": {"type": "string", "description": "Optional message to send after connection"},
+                "headers": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 2,
+                        "maxItems": 2
+                    },
+                    "description": "Optional HTTP headers as [key, value] pairs"
+                }
+            },
+            "required": ["url"]
+        })
+    }
+    
+    fn is_available() -> bool {
+        true
+    }
+    
+    fn display_name() -> &'static str {
+        "WebSocket"
+    }
+    
+    fn description() -> &'static str {
+        "Connect to WebSocket streams for real-time data"
     }
 }
