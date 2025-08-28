@@ -138,19 +138,51 @@ async fn delete_pipeline(
 // */
 async fn create_node(
     State(db): State<Arc<Database>>,
-    Node,
+    Path(pipeline_id): Path<i32>,
+    Json(node): Json<Node>,
 ) -> Result<Json<Node>, String> {
     let node_id = db.add_node(pipeline_id, &node)
         .map_err(|e| format!("Database error: {}", e))?;
 
-    let created_node = Node::new(
-        pipeline_id,
+    let created_node = Node {
+        id: node_id,
+        pipeline_id: node.pipeline_id,
+        node_type: node.node_type,
+        name: node.name,
+        config: node.config,
+        constraints: node.constraints,
+        status: node.status,
+        created_at: node.created_at,
+        updated_at: node.updated_at,
+    };
 
-    )
+    Ok(Json(created_node))
 }
 
-async fn create_connector() {
+async fn create_connector(
+    State(db): State<Arc<Database>>,
+    Path(pipeline_id): Path<i32>,
+    Json(connector_config): Json<serde_json::Value>,
+    Json(constraints): Json<serde_json::Value>,
+) -> Result<Json<Node>, String>{
+    let connector_type = connector_config
+        .get("connector_type")
+        .and_then(|v| v.as_str())
+        .ok_or("connector_type is required")?;
 
+    let node = Node::connector(
+        pipeline_id,
+        format!("{} Connector", connector_type),
+        None,
+        connector_config,
+        Some(constraints),
+    );
+
+    create_node(
+        State(db),
+        Path(pipeline_id),
+        Json(node),
+    ).await
 }
 
 async fn create_transformation() {
