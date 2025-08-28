@@ -78,12 +78,7 @@ async fn create_pipeline(
         let id = db
             .add_pipeline(&pipeline)
             .map_err(|e| format!("Database error: {}", e))?;
-        Pipeline {
-            id,
-            name: pipeline.name,
-            nodes: vec![],
-            edges: vec![],
-        }
+        Pipeline::new(pipeline.name)
     } else {
         db.clone_pipeline(&pipeline)
             .map_err(|e| format!("Could not clone pipeline: {}", e))?
@@ -141,8 +136,29 @@ async fn delete_pipeline(
 // PUT    /api/pipelines/{id}/destinations/{did} # Edit destination
 // DELETE /api/pipelines/{id}/destinations/{did} # Remove destination
 // */
-async fn add_node(connector: Node) -> Result<()> {
+async fn create_node(
+    State(db): State<Arc<Database>>,
+    Node,
+) -> Result<Json<Node>, String> {
+    let node_id = db.add_node(pipeline_id, &node)
+        .map_err(|e| format!("Database error: {}", e))?;
 
+    let created_node = Node::new(
+        pipeline_id,
+
+    )
+}
+
+async fn create_connector() {
+
+}
+
+async fn create_transformation() {
+
+}
+
+async fn create_destination() {
+    
 }
 
 // async fn edit_node(id: i32, connector: Node) -> Result<()> {
