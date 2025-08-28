@@ -138,3 +138,34 @@ pub struct Edge {
     from: i32,
     to: i32,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum ConnectorType {
+    #[serde(rename = "csv")]
+    Csv,
+    #[serde(rename = "websocket")]
+    WebSocket,
+    #[serde(rename = "rest")]
+    Rest,
+    #[serde(rename = "kafka")]
+    Kafka,
+}
+
+impl ConnectorType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ConnectorType::Csv => "csv",
+            ConnectorType::WebSocket => "websocket",
+            ConnectorType::Rest => "rest",
+            ConnectorType::Kafka => "kafka",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "csv" => Ok(ConnectorType::Csv),
+            "websocket" => Ok(ConnectorType::WebSocket),
+            
+        }
+    }
+}
