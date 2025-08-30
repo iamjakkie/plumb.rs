@@ -154,4 +154,15 @@ impl ConnectorMeta for CsvSource {
     fn description() -> &'static str {
         "Read data from CSV files with configurable delimiters and header options"
     }
+
+    fn constraint_schema() -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "max_file_size": {"type": "number", "description": "Maximum file size in bytes"},
+                "encoding": {"type": "string", "default": "utf-8", "description": "File encoding"},
+                "max_rows": {"type": "number", "description": "Maximum number of rows to process"}
+            }
+        })
+    }
 }

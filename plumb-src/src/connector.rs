@@ -23,4 +23,6 @@ pub trait ConnectorMeta {
     fn display_name() -> &'static str;
 
     fn description() -> &'static str;
+
+    fn constraint_schema() -> serde_json::Value;
 }

@@ -106,4 +106,15 @@ impl ConnectorMeta for WebSocketSource {
     fn description() -> &'static str {
         "Connect to WebSocket streams for real-time data"
     }
+
+    fn constraint_schema() -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "max_message_size": {"type": "number", "description": "Maximum message size in bytes"},
+                "reconnect_attempts": {"type": "number", "default": 3, "description": "Number of reconnection attempts"},
+                "timeout_seconds": {"type": "number", "default": 30, "description": "Connection timeout in seconds"}
+            }
+        })
+    }
 }
