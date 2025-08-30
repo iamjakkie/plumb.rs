@@ -1,9 +1,10 @@
 pub mod connector;
-pub mod websocket;
-pub mod csv;
+pub mod connectors;
 
-pub use websocket::{WebSocketSource, WebSocketConfig, WebSocketError};
-pub use csv::{CsvSource, CsvConfig, CsvError};
+use std::collections::HashSet;
+
+pub use connectors::websocket::{WebSocketSource, WebSocketConfig, WebSocketError};
+pub use connectors::csv::{CsvSource, CsvConfig, CsvError};
 
 use crate::connector::ConnectorMeta;
 
@@ -25,4 +26,17 @@ pub fn get_available_connectors() -> Vec<(&'static str, serde_json::Value, serde
             WebSocketSource::description(),
         )
     ]
+}
+
+/// Returns a HashSet of available connector types for efficient lookup.
+pub fn get_available_connector_types() -> HashSet<&'static str> {
+    let mut types = HashSet::new();
+    types.insert(CsvSource::connector_type());
+    types.insert(WebSocketSource::connector_type());
+    types
+}
+
+/// Check if a connector type is available.
+pub fn is_connector_available(connector_type: &str) -> bool {
+    get_available_connector_types().contains(connector_type)
 }

@@ -16,6 +16,8 @@ mod models;
 use db::Database;
 use models::*;
 
+use plumb_src;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().ok();
@@ -169,6 +171,10 @@ async fn create_connector(
         .get("connector_type")
         .and_then(|v| v.as_str())
         .ok_or("connector_type is required")?;
+
+    if !plumb_src::is_connector_available(connector_type) {
+        return Err("Connector not available in plumb.rs".to_string());
+    }
 
     let node = Node::connector(
         pipeline_id,
