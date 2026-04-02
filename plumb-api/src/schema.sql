@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     node_type TEXT NOT NULL,  -- 'connector', 'transformation', 'destination'
     name TEXT NOT NULL,
     config JSON,
-    constraints JSON  -- Store NodeType constraints as JSON
+    constraints JSON, -- Store NodeType constraints as JSON
     status TEXT DEFAULT 'idle',
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

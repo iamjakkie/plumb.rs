@@ -1,9 +1,10 @@
 use anyhow::Result;
 use axum::{
-    extract::{Path, State}, 
-    http::{HeaderValue, Method},
-    routing::{get, post}, 
-    Json, Router
+    extract::{Path, State},
+    http::{Method, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
 };
 use dotenv::dotenv;
 use std::{env, sync::Arc};
@@ -16,7 +17,29 @@ mod models;
 use db::Database;
 use models::*;
 
-use plumb_src;
+// ---------------------------------------------------------------------------
+// Error handling
+// ---------------------------------------------------------------------------
+
+struct AppError(anyhow::Error);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, self.0.to_string()).into_response()
+    }
+}
+
+impl<E: Into<anyhow::Error>> From<E> for AppError {
+    fn from(e: E) -> Self {
+        Self(e.into())
+    }
+}
+
+type ApiResult<T> = Result<T, AppError>;
+
+// ---------------------------------------------------------------------------
+// Server bootstrap
+// ---------------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,76 +48,67 @@ async fn main() -> Result<()> {
     let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
 
-    println!("Starting Plumb API server on {}:{}", host, port);
-
     let db = Arc::new(Database::new()?);
 
-    // Configure CORS (still needed for API calls from the frontend)
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any);
 
-    let app = Router::new()
-        // API routes
+    let api = Router::new()
         .route("/health", get(health))
         .route("/api/pipelines", get(list_pipelines).post(create_pipeline))
-        .route("/api/pipelines/{id}", get(get_pipeline))
+        .route(
+            "/api/pipelines/{id}",
+            get(get_pipeline).delete(delete_pipeline),
+        )
+        .route("/api/pipelines/{id}/nodes", post(create_node))
         .layer(ServiceBuilder::new().layer(cors))
-        .with_state(db)
-        // Serve static files (HTML, CSS, JS) from plumb-ui directory as fallback
-        .fallback_service(ServeDir::new("plumb-ui"));
+        .with_state(db);
+
+    let app = api.fallback_service(ServeDir::new("plumb-ui"));
 
     let listener = tokio::net::TcpListener::bind(format!("{}:{}", host, port)).await?;
-    println!("Server listening on http://{}:{}", host, port);
+    println!("Listening on http://{}:{}", host, port);
     axum::serve(listener, app).await?;
 
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
+
 async fn health() -> &'static str {
     "OK"
 }
 
-/*
-GET    /api/pipelines              # List all pipelines
-POST   /api/pipelines              # Create new pipeline
-GET    /api/pipelines/{id}         # Get pipeline details
-PUT    /api/pipelines/{id}         # Update pipeline
-DELETE /api/pipelines/{id}         # Delete pipeline
-*/
-
-async fn list_pipelines(State(db): State<Arc<Database>>) -> Result<Json<Vec<Pipeline>>, String> {
-    let pipelines = db
-        .get_all_pipelines()
-        .map_err(|e| format!("Database error: {}", e))?;
-
-    Ok(Json(pipelines))
-}
-
-async fn create_pipeline(
+async fn list_pipelines(
     State(db): State<Arc<Database>>,
-    Json(pipeline): Json<Pipeline>,
-) -> Result<Json<Pipeline>, String> {
-    let created_pipeline = if pipeline.nodes.is_empty() && pipeline.edges.is_empty() {
-        let id = db
-            .add_pipeline(&pipeline)
-            .map_err(|e| format!("Database error: {}", e))?;
-        Pipeline::new(pipeline.name)
-    } else {
-        db.clone_pipeline(&pipeline)
-            .map_err(|e| format!("Could not clone pipeline: {}", e))?
-    };
-
-    Ok(Json(created_pipeline))
+) -> ApiResult<Json<Vec<Pipeline>>> {
+    let pipelines = db.get_all_pipelines()?;
+    Ok(Json(pipelines))
 }
 
 async fn get_pipeline(
     State(db): State<Arc<Database>>,
     Path(id): Path<i32>,
-) -> Result<Json<Pipeline>, String> {
-    let pipeline = db.get_pipeline(id)
-        .map_err(|e| format!("Database error: {}", e))?;
+) -> ApiResult<Json<Pipeline>> {
+    let pipeline = db.get_pipeline(id)?;
+    Ok(Json(pipeline))
+}
+
+async fn create_pipeline(
+    State(db): State<Arc<Database>>,
+    Json(payload): Json<Pipeline>,
+) -> ApiResult<Json<Pipeline>> {
+    let pipeline = if payload.nodes.is_empty() && payload.edges.is_empty() {
+        let new = Pipeline::new(payload.name);
+        let id = db.add_pipeline(&new)?;
+        Pipeline { id, ..new }
+    } else {
+        db.clone_pipeline(&payload)?
+    };
 
     Ok(Json(pipeline))
 }
@@ -102,117 +116,16 @@ async fn get_pipeline(
 async fn delete_pipeline(
     State(db): State<Arc<Database>>,
     Path(id): Path<i32>,
-) -> Result<String, String> {
-    db.remove_pipeline(id)
-        .map_err(|e| format!("Database error: {}", e))?;
-    Ok("Pipeline deleted successfully".to_string())
+) -> ApiResult<StatusCode> {
+    db.remove_pipeline(id)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
-// /*
-// GET    /api/connectors             # List available connector types
-// GET    /api/transformations        # List available transformation types
-// GET    /api/destinations           # List available destination types
-// */
-// async fn get_connectors() -> Vec<String> {
-
-// }
-
-// async fn get_transformations() -> Vec<String> {
-
-// }
-
-// async fn get_destinations() -> Vec<String> {
-
-// }
-
-// /*
-// POST   /api/pipelines/{id}/connectors      # Add connector to pipeline
-// PUT    /api/pipelines/{id}/connectors/{cid} # Edit connector
-// DELETE /api/pipelines/{id}/connectors/{cid} # Remove connector
-
-// POST   /api/pipelines/{id}/transformations  # Add transformation
-// PUT    /api/pipelines/{id}/transformations/{tid} # Edit transformation
-// DELETE /api/pipelines/{id}/transformations/{tid} # Remove transformation
-
-// POST   /api/pipelines/{id}/destinations     # Add destination
-// PUT    /api/pipelines/{id}/destinations/{did} # Edit destination
-// DELETE /api/pipelines/{id}/destinations/{did} # Remove destination
-// */
 async fn create_node(
     State(db): State<Arc<Database>>,
     Path(pipeline_id): Path<i32>,
     Json(node): Json<Node>,
-) -> Result<Json<Node>, String> {
-    let node_id = db.add_node(pipeline_id, &node)
-        .map_err(|e| format!("Database error: {}", e))?;
-
-    let created_node = Node {
-        id: node_id,
-        pipeline_id: node.pipeline_id,
-        node_type: node.node_type,
-        name: node.name,
-        config: node.config,
-        constraints: node.constraints,
-        status: node.status,
-        created_at: node.created_at,
-        updated_at: node.updated_at,
-    };
-
-    Ok(Json(created_node))
+) -> ApiResult<Json<Node>> {
+    let id = db.add_node(pipeline_id, &node)?;
+    Ok(Json(Node { id, ..node }))
 }
-
-async fn create_connector(
-    State(db): State<Arc<Database>>,
-    Path(pipeline_id): Path<i32>,
-    Json(connector_config): Json<serde_json::Value>,
-    Json(constraints): Json<serde_json::Value>,
-) -> Result<Json<Node>, String>{
-    let connector_type = connector_config
-        .get("connector_type")
-        .and_then(|v| v.as_str())
-        .ok_or("connector_type is required")?;
-
-    if !plumb_src::is_connector_available(connector_type) {
-        return Err("Connector not available in plumb.rs".to_string());
-    }
-
-    let node = Node::connector(
-        pipeline_id,
-        format!("{} Connector", connector_type),
-        None,
-        connector_config,
-        Some(constraints),
-    );
-
-    create_node(
-        State(db),
-        Path(pipeline_id),
-        Json(node),
-    ).await
-}
-
-async fn create_transformation() {
-
-}
-
-async fn create_destination() {
-    
-}
-
-// async fn edit_node(id: i32, connector: Node) -> Result<()> {
-
-// }
-
-// async fn delete_node(id: i32) -> Result<()> {
-
-// }
-
-// /*
-// GET    /api/pipelines/{id}/dag     # Get pipeline DAG
-// PUT    /api/pipelines/{id}/dag     # Update connections/links
-// */
-// /*
-// GET    /api/pipelines/{id}/state   # Get pipeline state
-// GET    /api/connectors/{id}/state  # Get connector state
-// POST   /api/connectors/{id}/console # Enable/disable console logging
-// */

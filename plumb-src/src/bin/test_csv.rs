@@ -1,4 +1,4 @@
-use plumb_src::{Source, CsvSource, CsvConfig};
+use plumb_src::{Connector, CsvSource, CsvConfig};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

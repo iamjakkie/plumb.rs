@@ -27,6 +27,7 @@ pub enum WebSocketError {
 
 pub struct WebSocketSource {
     ws_stream: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    #[allow(dead_code)] // retained for future reconnection logic
     config: WebSocketConfig,
 }
 

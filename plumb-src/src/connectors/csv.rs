@@ -74,8 +74,6 @@ impl Connector for CsvSource {
 
     async fn next(&mut self) -> Option<Result<Self::Item, Self::Error>> {
         let headers = self.headers.clone();
-        let mut record = csv::StringRecord::new();
-        
         let reader_clone = Arc::clone(&self.reader);
         let read_result = task::spawn_blocking(move || {
             let mut reader = reader_clone.lock().unwrap();

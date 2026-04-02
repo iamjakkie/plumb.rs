@@ -1,12 +1,43 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PipelineStatus {
+    #[default]
+    Idle,
+    Running,
+    Error,
+}
+
+impl FromStr for PipelineStatus {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "running" => Ok(Self::Running),
+            "error" => Ok(Self::Error),
+            _ => Ok(Self::Idle),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NodeStatus {
+    #[default]
+    Idle,
+    Running,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pipeline {
     pub id: i32,
     pub name: String,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
-    pub status: String,
+    pub status: PipelineStatus,
     pub created_at: Option<String>,
 }
 
@@ -17,13 +48,14 @@ impl Pipeline {
             name,
             nodes: Vec::new(),
             edges: Vec::new(),
-            status: "idle".to_string(),
+            status: PipelineStatus::Idle,
             created_at: None,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
 pub enum NodeType {
     Connector {
         max_outputs: Option<usize>,
@@ -47,7 +79,7 @@ impl NodeType {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     pub id: i32,
     pub pipeline_id: i32,
@@ -55,11 +87,12 @@ pub struct Node {
     pub name: String,
     pub config: serde_json::Value,
     pub constraints: Option<serde_json::Value>,
-    pub status: String,
+    pub status: NodeStatus,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
 
+#[allow(dead_code)]
 impl Node {
     pub fn new(
         pipeline_id: i32,
@@ -75,7 +108,7 @@ impl Node {
             name,
             config,
             constraints,
-            status: "idle".to_string(),
+            status: NodeStatus::Idle,
             created_at: None,
             updated_at: None,
         }
@@ -96,13 +129,7 @@ impl Node {
         config: serde_json::Value,
         constraints: Option<serde_json::Value>,
     ) -> Self {
-        Self::new(
-            pipeline_id,
-            name,
-            NodeType::Connector { max_outputs },
-            config,
-            constraints,
-        )
+        Self::new(pipeline_id, name, NodeType::Connector { max_outputs }, config, constraints)
     }
 
     pub fn transformation(
@@ -117,12 +144,7 @@ impl Node {
         Self::new(
             pipeline_id,
             name,
-            NodeType::Transformation {
-                min_inputs,
-                max_inputs,
-                min_outputs,
-                max_outputs,
-            },
+            NodeType::Transformation { min_inputs, max_inputs, min_outputs, max_outputs },
             config,
             None,
         )
@@ -133,8 +155,8 @@ impl Node {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Edge {
-    from: i32,
-    to: i32,
+    pub from: i32,
+    pub to: i32,
 }

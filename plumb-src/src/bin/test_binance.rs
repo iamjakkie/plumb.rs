@@ -1,4 +1,4 @@
-use plumb_src::{Source, WebSocketSource, WebSocketConfig};
+use plumb_src::{Connector, WebSocketSource, WebSocketConfig};
 use serde_json::json;
 
 #[tokio::main]
