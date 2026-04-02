@@ -134,12 +134,14 @@ function updateStatusSummary() {
     if (errorCount) errorCount.textContent = error;
 }
 
-function selectPipeline(pipeline) {
-    console.log('Selecting pipeline:', pipeline);
+function selectPipeline(id) {
+    const pipeline = pipelines.find(p => p.id === id);
+    if (!pipeline) return;
+
     selectedPipeline = pipeline;
-    renderPipelineList(); // Re-render to update active state
+    renderPipelineList();
     renderPipelineCanvas(pipeline);
-    
+
     elements.canvasTitle.textContent = pipeline.name;
     elements.canvasSubtitle.textContent = `${pipeline.nodes?.length || 0} nodes, ${pipeline.edges?.length || 0} connections`;
     elements.emptyState.style.display = 'none';
@@ -263,7 +265,7 @@ async function handleCreatePipeline(event) {
     const newPipeline = await createPipeline(name);
     if (newPipeline) {
         await loadPipelines();
-        selectPipeline(newPipeline);
+        selectPipeline(newPipeline.id);
         closeCreateModal();
         showNotification('Pipeline created successfully', 'success');
     }

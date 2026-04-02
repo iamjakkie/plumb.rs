@@ -37,6 +37,7 @@ pub struct Pipeline {
     pub name: String,
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+    #[serde(default)]
     pub status: PipelineStatus,
     pub created_at: Option<String>,
 }
