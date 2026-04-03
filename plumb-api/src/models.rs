@@ -88,6 +88,7 @@ pub struct Node {
     pub name: String,
     pub config: serde_json::Value,
     pub constraints: Option<serde_json::Value>,
+    #[serde(default)]
     pub status: NodeStatus,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
@@ -160,4 +161,10 @@ impl Node {
 pub struct Edge {
     pub from: i32,
     pub to: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ValidationResult {
+    pub valid: bool,
+    pub errors: Vec<String>,
 }

@@ -73,9 +73,13 @@
                         <span id="canvas-subtitle" class="subtitle">Select a pipeline to view details</span>
                     </div>
                     <div class="canvas-controls">
-                        <button id="zoom-out" class="btn btn-icon">🔍-</button>
-                        <button id="zoom-in" class="btn btn-icon">🔍+</button>
-                        <button id="fit-view" class="btn btn-icon">📐</button>
+                        <button id="add-node-btn" class="btn btn-primary" disabled>+ Add Node</button>
+                        <button id="validate-btn" class="btn btn-secondary" disabled>Validate</button>
+                        <button id="run-btn" class="btn btn-run" disabled>Run</button>
+                        <div class="controls-divider"></div>
+                        <button id="zoom-out" class="btn btn-icon">−</button>
+                        <button id="zoom-in" class="btn btn-icon">+</button>
+                        <button id="fit-view" class="btn btn-icon">⊡</button>
                     </div>
                 </div>
                 
@@ -124,6 +128,66 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Modal: Add Node (multi-step) -->
+    <div id="add-node-modal" class="modal">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3 id="node-modal-title">Add Node</h3>
+                <button id="close-node-modal" class="btn btn-icon">✕</button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Step 1: category -->
+                <div id="node-step-1" class="node-step">
+                    <p class="step-hint">What kind of node do you want to add?</p>
+                    <div class="node-btn-list">
+                        <button class="btn btn-secondary node-btn" onclick="handleCategorySelect('connector')">
+                            <span class="node-btn-name">Connector</span>
+                            <span class="node-btn-desc">Ingest data from a source</span>
+                        </button>
+                        <button class="btn btn-secondary node-btn" onclick="handleCategorySelect('transformation')">
+                            <span class="node-btn-name">Transformation</span>
+                            <span class="node-btn-desc">Filter, map, or enrich data</span>
+                        </button>
+                        <button class="btn btn-secondary node-btn" onclick="handleCategorySelect('destination')">
+                            <span class="node-btn-name">Destination</span>
+                            <span class="node-btn-desc">Write data to a sink</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: connector subtype -->
+                <div id="node-step-2" class="node-step" style="display:none">
+                    <p class="step-hint">Choose a connector type</p>
+                    <div id="connector-type-grid" class="node-btn-list">
+                        <!-- Populated from /api/connectors -->
+                    </div>
+                </div>
+
+                <!-- Step 3: name + config (fields injected by JS) -->
+                <div id="node-step-3" class="node-step" style="display:none">
+                    <form id="add-node-form" onsubmit="submitAddNode(event)">
+                        <div class="form-group">
+                            <label for="node-name">Name</label>
+                            <input type="text" id="node-name" placeholder="e.g. CSV Reader" required>
+                        </div>
+                        <div id="node-config-fields">
+                            <!-- Schema-driven fields rendered here -->
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+            <div class="modal-footer">
+                <button id="node-modal-back" class="btn btn-secondary" style="display:none"
+                        onclick="goNodeModalBack()">← Back</button>
+                <div style="flex:1"></div>
+                <button id="cancel-add-node" class="btn btn-secondary">Cancel</button>
+                <button id="confirm-add-node" class="btn btn-primary" style="display:none">Add Node</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=9"></script>
 </body>
 </html>

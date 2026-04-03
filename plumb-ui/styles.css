@@ -119,9 +119,8 @@ body {
     border: 1px solid rgba(59, 130, 246, 0.1);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
     position: relative;
-    overflow: hidden;
     min-height: 44px;
     display: flex;
     align-items: center;
@@ -143,8 +142,7 @@ body {
 
 .pipeline-item:hover {
     border-color: rgba(59, 130, 246, 0.4);
-    box-shadow: 0 8px 32px rgba(59, 130, 246, 0.15);
-    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
 }
 
 .pipeline-item:hover::before {
@@ -241,15 +239,14 @@ body {
     right: -2px;
     bottom: -2px;
     border-radius: 50%;
-    opacity: 0.3;
-    animation: pulse 2s infinite;
+    opacity: 0;
 }
 
-.status-running { 
-    background: #10b981; 
+.status-running {
+    background: #10b981;
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
 }
-.status-running::after { background: #10b981; }
+.status-running::after { background: #10b981; opacity: 0.3; animation: pulse 2s infinite; }
 
 .status-idle { 
     background: #64748b; 
@@ -349,13 +346,18 @@ body {
     flex: 1;
     position: relative;
     overflow: hidden;
-    background: radial-gradient(circle at center, rgba(59, 130, 246, 0.02) 0%, transparent 70%);
+    /* Dot-grid background like Miro/Figma */
+    background-color: #080f1e;
+    background-image: radial-gradient(circle, rgba(71, 85, 105, 0.4) 1px, transparent 1px);
+    background-size: 24px 24px;
 }
 
 .pipeline-canvas {
     width: 100%;
     height: 100%;
     background: transparent;
+    cursor: default;
+    user-select: none;
 }
 
 /* Empty state */
@@ -532,16 +534,16 @@ body {
 }
 
 .form-group input,
+.form-group select,
 .form-group textarea {
     width: 100%;
-    padding: 1rem;
-    background: rgba(30, 41, 59, 0.5);
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 0.875rem 1rem;
+    background: rgba(8, 15, 30, 0.7);
+    border: 1.5px solid rgba(71, 85, 105, 0.6);
     border-radius: 8px;
     font-size: 0.875rem;
     color: #f1f5f9;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input::placeholder,
@@ -550,11 +552,104 @@ body {
 }
 
 .form-group input:focus,
+.form-group select:focus,
 .form-group textarea:focus {
     outline: none;
     border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 0 20px rgba(59, 130, 246, 0.2);
-    background: rgba(30, 41, 59, 0.7);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    background: rgba(8, 15, 30, 0.9);
+}
+
+/* ── Required field marker ────────────────────────────────────────────────── */
+.field-required {
+    color: #f87171;
+    margin-left: 2px;
+}
+
+/* ── Field hint ──────────────────────────────────────────────────────────── */
+.field-hint {
+    margin-top: 0.375rem;
+    font-size: 0.75rem;
+    color: #475569;
+    line-height: 1.4;
+}
+
+/* ── File path input row ─────────────────────────────────────────────────── */
+.file-input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+.file-input-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-input-row .btn {
+    flex-shrink: 0;
+    padding: 0 1.125rem;
+    font-size: 0.8125rem;
+}
+
+.file-upload-status {
+    display: block;
+    margin-top: 0.375rem;
+    font-size: 0.75rem;
+    color: #475569;
+    min-height: 1rem;
+}
+
+.file-upload-ok  { color: #10b981; }
+.file-upload-err { color: #f87171; }
+
+/* ── Boolean toggle ──────────────────────────────────────────────────────── */
+.toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    background: rgba(71, 85, 105, 0.5);
+    border: 1.5px solid rgba(71, 85, 105, 0.6);
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #64748b;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle-input:checked + .toggle-track {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: #3b82f6;
+}
+
+.toggle-input:checked + .toggle-track::after {
+    transform: translateX(18px);
+    background: #3b82f6;
 }
 
 .form-group textarea {
@@ -630,4 +725,105 @@ body {
         margin: 1rem;
         width: calc(100% - 2rem);
     }
+}
+
+/* ── Disabled button ─────────────────────────────────────────────────────── */
+.btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ── Run button ───────────────────────────────────────────────────────────── */
+.btn-run {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-color: rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+}
+
+.btn-run:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+}
+
+/* ── Canvas controls divider ──────────────────────────────────────────────── */
+.controls-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(59, 130, 246, 0.2);
+    margin: 0 0.25rem;
+}
+
+/* ── Wider modal variant ──────────────────────────────────────────────────── */
+.modal-wide {
+    max-width: 520px;
+}
+
+/* ── Scrollable modal body for long config forms ──────────────────────────── */
+.modal-wide .modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+/* ── Add-node step hint ──────────────────────────────────────────────────── */
+.step-hint {
+    color: #64748b;
+    font-size: 0.8125rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+
+/* ── Node picker list ─────────────────────────────────────────────────────── */
+.node-btn-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Extends .btn .btn-secondary — full width, left-aligned, description inline */
+.node-btn {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    gap: 0;
+}
+
+.node-btn-name {
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-right: 0.75rem;
+    min-width: 110px;
+}
+
+.node-btn-desc {
+    flex: 1;
+    font-weight: 400;
+    color: #64748b;
+    font-size: 0.8125rem;
+}
+
+/* ── SVG canvas node + port styles ───────────────────────────────────────── */
+.node-drag-handle {
+    cursor: grab;
+}
+
+.port-output {
+    cursor: crosshair;
+    transition: opacity 0.15s;
+}
+
+.port-output:hover {
+    opacity: 0.75;
+}
+
+.port-input {
+    cursor: crosshair;
+}
+
+.port-input:hover {
+    opacity: 0.75;
 }
