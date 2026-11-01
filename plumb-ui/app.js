@@ -9,6 +9,7 @@ let pipelines = [];
 let filteredPipelines = [];
 let selectedPipeline = null;
 let availableConnectors = [];
+let availableOperators = [];   // transforms + destinations from /api/operators
 
 // ─── Canvas state ──────────────────────────────────────────────────────────
 let nodePositions = {};        // { [nodeId]: { x, y } }
@@ -25,7 +26,14 @@ let connectingFrom = null;     // { nodeId, x, y } in canvas coords
 let nodeModalStep = 1;
 let selectedCategory = null;   // 'connector' | 'transformation' | 'destination'
 let selectedConnType = null;
-let selectedConnMeta = null;   // full connector object from /api/connectors
+let selectedConnMeta = null;   // connector or operator meta with config_schema
+
+// ─── Live events ───────────────────────────────────────────────────────────
+let eventSource = null;
+let eventsPaused = false;
+let eventCount = 0;
+let eventWindow = [];
+const MAX_EVENT_LINES = 200;
 
 // ─── DOM helpers ───────────────────────────────────────────────────────────
 const el = id => document.getElementById(id);
@@ -88,9 +96,18 @@ async function fetchConnectors() {
         const res = await fetch(`${API_BASE}/connectors`);
         if (!res.ok) throw new Error();
         availableConnectors = await res.json();
-        renderConnectorTypeGrid();
     } catch {
         availableConnectors = [];
+    }
+}
+
+async function fetchOperators() {
+    try {
+        const res = await fetch(`${API_BASE}/operators`);
+        if (!res.ok) throw new Error();
+        availableOperators = await res.json();
+    } catch {
+        availableOperators = [];
     }
 }
 
@@ -121,14 +138,20 @@ async function loadPipelines() {
         filteredPipelines = [...pipelines];
         renderPipelineList();
         updateStatusSummary();
-        if (pipelines.length > 0 && !selectedPipeline) selectPipeline(pipelines[0].id);
-    } catch {
+        if (pipelines.length > 0) {
+            const prefer = selectedPipeline?.id && pipelines.some(p => p.id === selectedPipeline.id)
+                ? selectedPipeline.id
+                : pipelines[0].id;
+            await selectPipeline(prefer);
+        }
+    } catch (err) {
+        console.error(err);
         showNotification('Failed to load pipelines', 'error');
         if (elements.pipelineList) {
             elements.pipelineList.innerHTML = `
                 <div class="empty-list">
                     <p>Failed to load pipelines</p>
-                    <button class="btn btn-secondary" onclick="loadPipelines()">Retry</button>
+                    <button class="btn btn-ghost" type="button" onclick="loadPipelines()">Retry</button>
                 </div>`;
         }
     }
@@ -144,7 +167,7 @@ function renderPipelineList() {
         list.innerHTML = `
             <div class="empty-list">
                 <p>${searching ? 'No results' : 'No pipelines'}</p>
-                ${!searching ? '<button class="btn btn-primary" onclick="openCreateModal()">Create First Pipeline</button>' : ''}
+                ${!searching ? '<button class="btn btn-primary" type="button" onclick="openCreateModal()">New pipeline</button>' : ''}
             </div>`;
         return;
     }
@@ -155,7 +178,7 @@ function renderPipelineList() {
             <div class="pipeline-name" title="${p.name}">${p.name}</div>
             <div class="pipeline-meta">
                 <div class="pipeline-status ${p.status ?? 'idle'}"></div>
-                <span>${p.nodes?.length ?? 0}</span>
+                <span>${p.node_count ?? p.nodes?.length ?? 0}</span>
             </div>
         </div>`).join('');
 }
@@ -173,31 +196,79 @@ function updateStatusSummary() {
     if (e) e.textContent = error;
 }
 
-function selectPipeline(id) {
-    const pipeline = pipelines.find(p => p.id === id);
-    if (!pipeline) return;
-
-    // Reset canvas view when switching pipelines
+async function selectPipeline(id) {
     if (currentPipelineId !== id) {
+        closeEventStream();
         currentPipelineId = id;
         nodePositions = loadPositions(id);
         viewTranslate = { x: 60, y: 60 };
         viewScale = 1;
     }
 
-    selectedPipeline = pipeline;
-
     document.querySelectorAll('.pipeline-item').forEach(e => e.classList.remove('active'));
     document.querySelector(`.pipeline-item[data-id="${id}"]`)?.classList.add('active');
+    hideCanvasError();
 
-    renderPipelineCanvas(pipeline);
-    elements.canvasTitle.textContent = pipeline.name;
-    elements.canvasSubtitle.textContent =
-        `${pipeline.nodes?.length ?? 0} nodes · ${pipeline.edges?.length ?? 0} connections`;
-    elements.emptyState.style.display = 'none';
-    el('add-node-btn').disabled = false;
-    el('validate-btn').disabled = false;
-    el('run-btn').disabled = false;
+    try {
+        const res = await fetch(`${API_BASE}/pipelines/${id}`);
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+        const pipeline = body;
+        selectedPipeline = pipeline;
+        const idx = pipelines.findIndex(p => p.id === id);
+        if (idx >= 0) {
+            pipelines[idx] = {
+                ...pipelines[idx],
+                ...pipeline,
+                nodes: pipeline.nodes,
+                edges: pipeline.edges,
+                node_count: pipeline.nodes?.length ?? 0,
+            };
+        }
+        renderPipelineList();
+        renderPipelineCanvas(pipeline);
+        elements.canvasTitle.textContent = pipeline.name;
+        elements.canvasSubtitle.textContent =
+            `${pipeline.nodes?.length ?? 0} nodes · ${pipeline.edges?.length ?? 0} connections`;
+        if (elements.emptyState) elements.emptyState.hidden = true;
+        el('add-node-btn').disabled = false;
+        el('validate-btn').disabled = false;
+        updateRunStopButtons(pipeline.status);
+    } catch (err) {
+        console.error(err);
+        selectedPipeline = pipelines.find(p => p.id === id) || null;
+        if (selectedPipeline) {
+            selectedPipeline.nodes = selectedPipeline.nodes || [];
+            selectedPipeline.edges = selectedPipeline.edges || [];
+        }
+        elements.canvasTitle.textContent = selectedPipeline?.name || `Pipeline #${id}`;
+        elements.canvasSubtitle.textContent = 'Could not load graph';
+        showCanvasError(err.message || 'Failed to load pipeline');
+        el('add-node-btn').disabled = !selectedPipeline;
+        el('validate-btn').disabled = true;
+        updateRunStopButtons('idle');
+        showNotification(err.message || 'Failed to load pipeline', 'error');
+    }
+}
+
+function showCanvasError(message) {
+    const box = el('canvas-error');
+    if (!box) return;
+    box.hidden = false;
+    box.textContent = message;
+}
+
+function hideCanvasError() {
+    const box = el('canvas-error');
+    if (!box) return;
+    box.hidden = true;
+    box.textContent = '';
+}
+
+function updateRunStopButtons(status) {
+    const running = status === 'running';
+    el('run-btn').disabled = !selectedPipeline || running;
+    el('stop-btn').disabled = !selectedPipeline || !running;
 }
 
 // ─── Canvas rendering ──────────────────────────────────────────────────────
@@ -504,40 +575,52 @@ function closeAddNodeModal() {
     el('add-node-form')?.reset();
     el('node-config-fields').innerHTML = '';
     selectedConnMeta = null;
+    selectedConnType = null;
 }
 
 function goToStep(step) {
     nodeModalStep = step;
     [1, 2, 3].forEach(s => {
         const stepEl = el(`node-step-${s}`);
-        if (stepEl) stepEl.style.display = s === step ? '' : 'none';
+        if (stepEl) stepEl.hidden = s !== step;
     });
-    el('node-modal-back').style.display    = step > 1 ? '' : 'none';
-    el('confirm-add-node').style.display   = step === 3 ? '' : 'none';
-    el('node-modal-title').textContent     =
-        { 1: 'Add Node', 2: 'Choose Connector', 3: 'Configure Node' }[step] ?? 'Add Node';
+    el('node-modal-back').hidden = step <= 1;
+    el('confirm-add-node').hidden = step !== 3;
+    const titles = {
+        1: 'Add node',
+        2: selectedCategory === 'connector' ? 'Choose connector'
+            : selectedCategory === 'transformation' ? 'Choose transform'
+            : 'Choose destination',
+        3: 'Configure node',
+    };
+    el('node-modal-title').textContent = titles[step] ?? 'Add node';
 }
 
 function goNodeModalBack() {
-    goToStep(nodeModalStep === 3 && selectedCategory === 'connector' ? 2 : 1);
+    goToStep(nodeModalStep === 3 ? 2 : 1);
 }
 
 function handleCategorySelect(category) {
     selectedCategory = category;
     selectedConnMeta = null;
-
-    if (category === 'connector') {
-        goToStep(2);
-    } else {
-        el('node-name').value = category === 'transformation' ? 'Transform' : 'Output';
-        renderSchemaForm(null);
-        goToStep(3);
+    selectedConnType = null;
+    renderOperatorTypeGrid(category);
+    const hint = el('node-step-2-hint');
+    if (hint) {
+        hint.textContent = category === 'connector' ? 'Choose a connector type'
+            : category === 'transformation' ? 'Choose a transformation'
+            : 'Choose a destination';
     }
+    goToStep(2);
 }
 
 function handleConnectorTypeSelect(type, displayName) {
     selectedConnType = type;
-    selectedConnMeta = availableConnectors.find(c => c.type === type) ?? null;
+    if (selectedCategory === 'connector') {
+        selectedConnMeta = availableConnectors.find(c => c.type === type) ?? null;
+    } else {
+        selectedConnMeta = availableOperators.find(o => o.type === type && o.kind === selectedCategory) ?? null;
+    }
     el('node-name').value = displayName;
     renderSchemaForm(selectedConnMeta?.config_schema ?? null);
     goToStep(3);
@@ -674,16 +757,26 @@ function addHint(group, text) {
     group.appendChild(hint);
 }
 
-function renderConnectorTypeGrid() {
+function renderOperatorTypeGrid(category) {
     const grid = el('connector-type-grid');
     if (!grid) return;
-    if (!availableConnectors.length) {
-        grid.innerHTML = '<p style="color:#64748b;font-size:.875rem">No connectors available.</p>';
+
+    let items = [];
+    if (category === 'connector') {
+        items = availableConnectors.map(c => ({ type: c.type, display_name: c.display_name, description: c.description }));
+    } else {
+        items = availableOperators
+            .filter(o => o.kind === category)
+            .map(o => ({ type: o.type, display_name: o.display_name, description: o.description }));
+    }
+
+    if (!items.length) {
+        grid.innerHTML = '<p style="color:#64748b;font-size:.875rem">No operators available.</p>';
         return;
     }
-    grid.innerHTML = availableConnectors.map(c => `
-        <button class="btn btn-secondary node-btn"
-                onclick="handleConnectorTypeSelect('${c.type}', '${c.display_name}')">
+    grid.innerHTML = items.map(c => `
+        <button class="btn node-btn" type="button"
+                onclick="handleConnectorTypeSelect('${c.type}', '${c.display_name.replace(/'/g, "\\'")}')">
             <span class="node-btn-name">${c.display_name}</span>
             <span class="node-btn-desc">${c.description}</span>
         </button>`).join('');
@@ -715,8 +808,10 @@ async function submitAddNode(event) {
 
     const name = el('node-name').value.trim();
     if (!name) { showNotification('Name is required', 'error'); return; }
+    if (!selectedConnType) { showNotification('Choose an operator type', 'error'); return; }
 
     const config = collectSchemaConfig(selectedConnMeta?.config_schema ?? null);
+    config.type = selectedConnType;
 
     const nodeTypeMap = {
         connector:      { kind: 'connector', max_outputs: null },
@@ -741,8 +836,13 @@ async function submitAddNode(event) {
         const created = await res.json();
 
         selectedPipeline.nodes.push(created);
+        selectedPipeline.node_count = selectedPipeline.nodes.length;
         const idx = pipelines.findIndex(p => p.id === selectedPipeline.id);
-        if (idx >= 0) pipelines[idx] = selectedPipeline;
+        if (idx >= 0) {
+            pipelines[idx] = selectedPipeline;
+            pipelines[idx].node_count = selectedPipeline.nodes.length;
+        }
+        renderPipelineList();
 
         ensurePositions(selectedPipeline.nodes);
         el('nodes-layer')?.appendChild(buildNodeElement(created));
@@ -779,20 +879,129 @@ async function triggerPipeline() {
             method: 'POST',
         });
         const result = await res.json();
+        if (!res.ok) {
+            showNotification(result.error || 'Failed to trigger pipeline', 'error');
+            return;
+        }
         if (result.valid) {
-            selectedPipeline.status = 'running';
-            const idx = pipelines.findIndex(p => p.id === selectedPipeline.id);
-            if (idx >= 0) pipelines[idx].status = 'running';
-            document.querySelector(`.pipeline-item[data-id="${selectedPipeline.id}"] .pipeline-status`)
-                ?.setAttribute('class', 'pipeline-status running');
-            updateStatusSummary();
+            setPipelineStatus(selectedPipeline.id, 'running');
+            setEventsExpanded(true);
+            clearEventsLog();
+            openEventStream(selectedPipeline.id);
             showNotification('Pipeline started', 'success');
         } else {
-            result.errors.forEach(e => showNotification(e, 'error'));
+            (result.errors || []).forEach(e => showNotification(e, 'error'));
         }
     } catch {
         showNotification('Failed to trigger pipeline', 'error');
     }
+}
+
+async function stopPipeline() {
+    if (!selectedPipeline) return;
+    try {
+        const res = await fetch(`${API_BASE}/pipelines/${selectedPipeline.id}/stop`, {
+            method: 'POST',
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showNotification(body.error || 'Failed to stop', 'error');
+            return;
+        }
+        closeEventStream();
+        setPipelineStatus(selectedPipeline.id, 'idle');
+        showNotification('Pipeline stopped', 'success');
+    } catch {
+        showNotification('Failed to stop pipeline', 'error');
+    }
+}
+
+function setPipelineStatus(id, status) {
+    if (selectedPipeline?.id === id) selectedPipeline.status = status;
+    const idx = pipelines.findIndex(p => p.id === id);
+    if (idx >= 0) pipelines[idx].status = status;
+    document.querySelector(`.pipeline-item[data-id="${id}"] .pipeline-status`)
+        ?.setAttribute('class', `pipeline-status ${status}`);
+    updateStatusSummary();
+    if (selectedPipeline?.id === id) updateRunStopButtons(status);
+}
+
+function openEventStream(pipelineId) {
+    closeEventStream();
+    eventsPaused = false;
+    el('events-pause-btn').textContent = 'Pause';
+    eventSource = new EventSource(`${API_BASE}/pipelines/${pipelineId}/events`);
+    eventSource.addEventListener('plumb', (ev) => {
+        try {
+            handleEngineEvent(JSON.parse(ev.data));
+        } catch { /* ignore */ }
+    });
+    eventSource.onerror = () => {
+        // Server closed stream when pipeline finished — treat as idle if still marked running
+        if (selectedPipeline?.status === 'running') {
+            // keep listening briefly; RuntimeManager removes entry on completion
+        }
+    };
+}
+
+function closeEventStream() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+}
+
+function handleEngineEvent(ev) {
+    const kind = ev.kind;
+    if (kind === 'record') {
+        eventCount += 1;
+        eventWindow.push(Date.now());
+        const cutoff = Date.now() - 1000;
+        eventWindow = eventWindow.filter(t => t >= cutoff);
+        el('events-count').textContent = String(eventCount);
+        el('events-rate').textContent = `${eventWindow.length} /s`;
+        if (!eventsPaused) appendEventLine('record', JSON.stringify(ev.payload, null, 2));
+    } else if (kind === 'error') {
+        appendEventLine('error', ev.payload?.error || JSON.stringify(ev.payload));
+        setPipelineStatus(ev.pipeline_id, 'error');
+        updateRunStopButtons('error');
+    } else if (kind === 'status' || kind === 'eof') {
+        const status = ev.payload?.status;
+        appendEventLine('status', status || kind);
+        if (status === 'idle' || status === 'stopped' || status === 'completed' || kind === 'eof') {
+            setPipelineStatus(ev.pipeline_id, status === 'error' ? 'error' : 'idle');
+            closeEventStream();
+        } else if (status === 'error') {
+            setPipelineStatus(ev.pipeline_id, 'error');
+            closeEventStream();
+        }
+    }
+}
+
+function appendEventLine(cls, text) {
+    const log = el('events-log');
+    if (!log) return;
+    const empty = log.querySelector('.events-empty');
+    if (empty) empty.remove();
+    const line = document.createElement('div');
+    line.className = `events-line ${cls}`;
+    line.textContent = text;
+    log.prepend(line);
+    while (log.children.length > MAX_EVENT_LINES) log.removeChild(log.lastChild);
+}
+
+function clearEventsLog() {
+    eventCount = 0;
+    eventWindow = [];
+    el('events-count').textContent = '0';
+    el('events-rate').textContent = '0 /s';
+    const log = el('events-log');
+    if (log) log.innerHTML = '<p class="events-empty">Run a pipeline to stream records here.</p>';
+}
+
+function toggleEventsPause() {
+    eventsPaused = !eventsPaused;
+    el('events-pause-btn').textContent = eventsPaused ? 'Resume' : 'Pause';
 }
 
 // ─── Create Pipeline modal ─────────────────────────────────────────────────
@@ -833,16 +1042,24 @@ function handleSearch(event) {
 
 // ─── Notifications ─────────────────────────────────────────────────────────
 function showNotification(message, type = 'info') {
+    const root = el('toast-root') || document.body;
     const n = document.createElement('div');
+    n.className = `toast ${type}`;
     n.textContent = message;
-    n.style.cssText = `
-        position:fixed; top:20px; right:20px; padding:12px 18px;
-        border-radius:8px; color:#fff; font-weight:600; font-size:.875rem;
-        z-index:3000; animation:slideIn .25s ease;
-        background:${{ error: '#ef4444', success: '#10b981' }[type] ?? '#3b82f6'};
-        box-shadow:0 8px 24px rgba(0,0,0,.35);`;
-    document.body.appendChild(n);
-    setTimeout(() => n.remove(), 3000);
+    root.appendChild(n);
+    setTimeout(() => n.remove(), 3500);
+}
+
+function setEventsExpanded(open) {
+    const panel = el('events-panel');
+    if (!panel) return;
+    panel.classList.toggle('collapsed', !open);
+}
+
+function toggleEventsPanel() {
+    const panel = el('events-panel');
+    if (!panel) return;
+    setEventsExpanded(panel.classList.contains('collapsed'));
 }
 
 // ─── Bootstrap ─────────────────────────────────────────────────────────────
@@ -861,6 +1078,11 @@ document.addEventListener('DOMContentLoaded', () => {
     el('add-node-btn')?.addEventListener('click', openAddNodeModal);
     el('validate-btn')?.addEventListener('click', validatePipeline);
     el('run-btn')?.addEventListener('click', triggerPipeline);
+    el('stop-btn')?.addEventListener('click', stopPipeline);
+    el('events-clear-btn')?.addEventListener('click', clearEventsLog);
+    el('events-pause-btn')?.addEventListener('click', toggleEventsPause);
+    el('toggle-events-btn')?.addEventListener('click', toggleEventsPanel);
+    el('events-collapse-btn')?.addEventListener('click', toggleEventsPanel);
     el('close-node-modal')?.addEventListener('click', closeAddNodeModal);
     el('cancel-add-node')?.addEventListener('click', closeAddNodeModal);
     el('confirm-add-node')?.addEventListener('click', submitAddNode);
@@ -896,6 +1118,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     initCanvasEvents();
-    fetchConnectors();
-    loadPipelines();
+    Promise.all([fetchConnectors(), fetchOperators()]).then(() => loadPipelines());
 });

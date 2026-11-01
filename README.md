@@ -1,51 +1,83 @@
 # plumb.rs
 
-A lightweight stream analytics testing tool built in Rust. Point it at any data source — CSV files, WebSockets, or your own connector — and get a live pipeline to experiment with stream processing logic without needing a full Kafka/Flink setup.
+A local, single-process stream lab in Rust. Point a pipeline at a CSV file or WebSocket, add a few transforms, hit **Run**, and watch JSON records stream into the UI — no Kafka/Flink required.
+
+This is an early working prototype, not a distributed streaming platform.
 
 ## Architecture
 
-The project is a Cargo workspace with three crates and a UI:
+Cargo workspace:
 
-| Crate | Description |
+| Crate / dir | Role |
 |---|---|
-| `plumb-api` | Axum HTTP API server — manages pipelines, nodes, and connectors |
-| `plumb-src` | Connector library — pluggable data sources with validation |
-| `plumb-rs` | Core engine |
-| `plumb-ui` | Vanilla JS frontend served statically by the API |
+| `plumb-api` | Axum HTTP API, SQLite, runtime manager, static UI |
+| `plumb-src` | Connectors (CSV, WebSocket) + transforms + preview destination |
+| `plumb-rs` | In-process DAG engine |
+| `plumb-ui` | Vanilla JS canvas editor + live events panel |
 
-## Getting Started
+## Getting started
 
-**Prerequisites:** Rust (2024 edition), SQLite
+**Prerequisites:** Rust (edition 2021), SQLite (via `rusqlite`)
 
 ```bash
 git clone https://github.com/iamjakkie/plumb.rs.git
 cd plumb.rs
 
-# Copy and configure environment
-cp .env.example .env  # set HOST, PORT as needed
+cp .env.example .env   # HOST, PORT, DATABASE_PATH
 
 cargo run -p plumb-api
 ```
 
-The server starts on `http://0.0.0.0:3000` by default and serves the UI at `/`.
+Open `http://localhost:3000`.
+
+### Quick lab loop
+
+1. **New Pipeline**
+2. Add a **CSV** connector — Browse/upload a file (sample under `data/uploads/`)
+3. Add **Rate Limit** (e.g. 5 records/sec) so replay is watchable
+4. Optionally add **Filter** / **Map**
+5. Add a **Preview** destination
+6. Draw edges: CSV → Rate Limit → … → Preview
+7. **Validate** → **Run** — records appear in **Live Events**
+8. **Stop** to cancel
 
 ## API
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `GET` | `/api/pipelines` | List all pipelines |
-| `POST` | `/api/pipelines` | Create a pipeline |
-| `GET` | `/api/pipelines/:id` | Get pipeline details |
+| `GET` | `/api/connectors` | Connector metadata + config schemas |
+| `GET` | `/api/operators` | Transform + destination schemas |
+| `GET` | `/api/pipelines` | List pipelines (includes `node_count`) |
+| `POST` | `/api/pipelines` | Create (or clone) a pipeline |
+| `GET` | `/api/pipelines/:id` | Full pipeline with nodes/edges |
+| `DELETE` | `/api/pipelines/:id` | Delete pipeline |
+| `POST` | `/api/pipelines/:id/nodes` | Add node (`config.type` required) |
+| `POST` | `/api/pipelines/:id/edges` | Add edge `{ from, to }` |
+| `GET` | `/api/pipelines/:id/validate` | Graph + config checks |
+| `POST` | `/api/pipelines/:id/trigger` | Start engine |
+| `POST` | `/api/pipelines/:id/stop` | Cancel running pipeline |
+| `GET` | `/api/pipelines/:id/events` | SSE live `EngineEvent` stream |
+| `POST` | `/api/upload` | Multipart upload → `./data/uploads/` |
 
-## Connectors
+## Operators
 
-Available data source connectors (in `plumb-src`):
+**Sources:** `csv`, `websocket`  
+**Transforms:** `filter`, `map`, `rate_limit`  
+**Destination:** `preview` (feeds the Live Events panel)
 
-- **CSV** — read from CSV files
-- **WebSocket** — stream data from a WebSocket endpoint
+Node configs must include `"type": "<operator id>"` (the UI sets this when you pick a type).
 
-Each connector exposes a config schema, constraint schema, display name, and description via the `ConnectorMeta` trait.
+## Connector smoke tests
+
+```bash
+cargo run -p plumb-src --bin test_csv
+cargo run -p plumb-src --bin test_binance   # needs network
+```
+
+## Vision / backlog
+
+Longer-term ideas (AI-assisted connectors, ONNX, distributed fittings) live in `TUTOR.md` and are **not** implemented. The near-term goal is a solid local experimentation loop.
 
 ## License
 

@@ -40,6 +40,9 @@ pub struct Pipeline {
     #[serde(default)]
     pub status: PipelineStatus,
     pub created_at: Option<String>,
+    /// Present on list responses so the sidebar can show counts without loading nodes.
+    #[serde(default)]
+    pub node_count: i32,
 }
 
 impl Pipeline {
@@ -51,6 +54,7 @@ impl Pipeline {
             edges: Vec::new(),
             status: PipelineStatus::Idle,
             created_at: None,
+            node_count: 0,
         }
     }
 }

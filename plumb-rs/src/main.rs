@@ -1,3 +1,3 @@
 fn main() {
-    println!("Hello, world!");
+    eprintln!("plumb-rs is a library. Run: cargo run -p plumb-api");
 }

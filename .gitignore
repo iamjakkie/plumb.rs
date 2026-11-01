@@ -26,4 +26,5 @@ target
 /target
 
 .env
-data/plumb.db
+data/*.db
+data/uploads/
